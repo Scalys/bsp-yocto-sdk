@@ -1,0 +1,535 @@
+////
+This document can be converted into an HTML or a PDF file using an editor such as Asciidoc-FX.
+
+From the command line (Ubuntu 18.04) you can convert this .adoc file using the following commands:
+HTML: asciidoctor bsp_user_manual.adoc
+PDF: asciidoctor-pdf bsp_user_manual.adoc -d book
+This may require you to install some additional packages from the package manager.
+////
+//Make section headers linkable
+:sectlinks:
+
+= BSP User Manual
+:toc:
+
+== Introduction
+This technical reference document serves as a guide on how to build the Board Support Package (BSP) for the following Scalys devices:
+
+* *QLS1046A-4GB* - Teledyne E2V QLS1046-4GB<<qormino-page>> on a Scalys development board.
+
+This Yocto SDK<<yocto-page>> BSP is based on the yocto-sdk repository provided by NXP, which uses the latest Yocto project version combined with the more recent LSDK<<lsdk-page>> components. This repository can be found using the following information:
+
+[width="80%",cols="1,7"]
+|====================
+|URL|https://source.codeaurora.org/external/qoriq/qoriq-components/yocto-sdk
+|Commit|0f9acb1fa39ebd7b11319bff1a0a651589e0ef23
+|====================
+
+Refer to the documentation in the above mentioned repository for further information if desired. Additionally, the documentation of the LSDK<<lsdk-page>>, and Yocto project<<yocto-manual>> itself is also a relevant source for information.
+
+The same license (refer to the LICENSE file) is also applicable to the BSP provided by this document.
+
+This document assumes the reader has a basic knowledge of platform software and deployment, and will not go into much details of the actions performed to build the BSPs for the different platforms.
+
+=== Support
+The QLS1046A-4GB development board System-on-module (SoM) comes with a Linux Board Support Package (BSP). Scalys also offers a Carrier Board (CB) for evaluation purposes. The availability of the SOM, BSP and CB allows for a fast start of application development, bypassing the delay normally accompanied with hardware design. On request a BSP for other operating systems can be supported. Scalys also offers Design services, to offer custom CB development, custom module development and even provides the option to design a cost effective integrated solution. Allowing the Original Equipment Manufacturer (OEM) to bypass the development of the base platform, and enabling them to focus on developing their company specific Intellectual property (IP) a significant cost and development time reduction can be realized.
+
+
+.Document revision table
+[width="80%",cols="1,2,7",options="header"]
+|====================
+|Rev  |Date         |Description
+|1.0  |27 Feb 2020  | First release version with support for the QLS1046A-4GB development board.
+|====================
+__
+https://scalys.com/ +
+Copyright (C)  2020, Scalys BV.
+__
+
+:numbered:
+== Dependencies
+This document assumes the system used to build the BSP is a clean Ubuntu 18.04.4 LTS installation. In addition, a few extra packages must be installed, which are given in the following command:
+----
+sudo apt-get install gawk wget git-core diffstat unzip texinfo \
+     build-essential chrpath socat cpio python python3 python3-pip python3-pexpect \
+     xz-utils debianutils iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev \
+     pylint3 xterm gcc-aarch64-linux-gnu repo
+----
+
+Additionally, ensure that this system has at least 150GB of free storage space available and 4GB or more RAM memory available. Further details on system requirements can be found in the Yocto documentation<<yocto-manual>>.
+
+== Yocto build environment
+=== General Setup
+If not already done, then setup an username and email for git using the following commands:
+
+----
+git config --global user.name "Your Name"
+git config --global user.email "user@example.com"
+----
+
+=== NXP QorIQ Yocto SDK
+In this section we will start fetching all necessary Yocto SDK repositories.
+
+. Start in your build directory of choice. In this document we presume to use the `/home/user/qoriq` directory which can be created using the following commands:
++
+----
+mkdir /home/user/qoriq
+cd /home/user/qoriq
+----
+. Download the repository containing the BSP manifest and patch(es).
++
+----
+git clone https://github.com/Scalys/bsp-yocto-sdk.git -b zeus
+cd bsp-yocto-sdk/yocto-sdk
+----
+. Use the repo tool to fetch all the relevant repositories (the alternative to using the repo tool is for the user to manually retrieve the repositories/files described in the `default.xml` manifest file).
++
+----
+repo init -u "file://$PWD/../" -b zeus
+# you may get the question to enable color display for your user account. Decline this unless it is desired.
+repo sync -j4
+----
+In the above command the environment variable PWD should point to the directory containing the `default.xml` manifest file, i.e. `/home/user/qoriq/bsp-yocto-sdk/yocto-sdk` in our example.
+
+. At this point we can still perform a default test build with no Scalys specific code included yet. This step is optional, but it can be used to rule out basic problems. To proceed with this test build use the following commands:
++
+----
+. ./setup-env -m ls1046ardb
+# Read and accept the licence agreement to proceed.
+bitbake fsl-image-networking
+----
+In case a problem occurred here, then it is recommended to attempt solving it using the documentation of the yocto-sdk (see reference in introduction), used LSDK components, and/or Yocto project.
+
+=== Scalys SDK update
+In this section we will modify the setup-env file to include the meta-scalys layer and start building the actual BSP.
+
+. Patch the environment setup script to add the Scalys machines:
++
+----
+cd /home/user/qoriq/bsp-yocto-sdk/yocto-sdk
+git apply ../setup-env-meta-scalys-layer-support.patch
+----
+. Create a new build for the Scalys machine (make sure to do this in a clean shell):
++
+----
+. ./setup-env -m <scalys-machine>
+# Read and accept the licence agreement to proceed.
+----
+In the above command the `<scalys-machine>` variable can be one of the previously mentioned Scalys machines, e.g. qls1046a-4gb. All supported machines can be displayed by running the command `. ./setup-env`.
+
+. Start building the BSP:
++
+----
+bitbake fsl-image-networking
+----
++
+TIP: NXP also provides other images such as fsl-image-networking-full, which features more packages for evaluation. Note that some packages/features may not (yet) be supported for the machines covered in this BSP user manual.
+
+==== Generated Images
+The Yocto system generates a number of images. The images are located in the `tmp/deploy/images/<scalys-machine>` directory. A number of relevant images are:
+
+* *u-boot-<boot-source>-2019.04+fslgit-r0.bin* +
+U-Boot image which can be flashed to the respective boot source memory device. This image contains the RCW, PBL and main
+bootloader. Customized versions may be build using the standalone building steps provided later on in this document.
+* *fitImage* +
+FIT image containing the kernel, and the device tree.
+* *fsl-image-networking-<scalys-machine>.rootfs.ubifs* +
+Rootfs in the UBIFS format, ready to be flashed to the NAND flash.
+* *fsl-image-networking-<scalys-machine>.rootfs.tar.gz* +
+Rootfs in an archive. This file can be extracted to a local NFS location for network boot, or to a USB/SATA disk for target boot.
+* *fsl_fman_ucode_<cpu>_<version>.bin* +
+Frame Manager firmware which must be present for the ethernet interfaces to operate.
+
+== Configure system for booting from network
+These steps are optional and only necessary when the target is connected directly to the computer used to build the BSP.
+
+=== TFTP server installation and configuration
+. Install the TFTP server (if not already done):
++
+----
+sudo apt-get install xinetd tftpd tftp
+----
+
+. Create/edit the `/etc/xinetd.d/tftp` file and add the following entry:
++
+----
+service tftp
+{
+	protocol    = udp
+	port        = 69
+	socket_type = dgram
+	wait        = yes
+	user        = nobody
+	server      = /usr/sbin/in.tftpd
+	server_args = /tftpboot
+	disable     = no
+}
+----
+
+. Create a folder to serve the TFTP data:
++
+WARNING: TFTP Has no security so be aware this folder is NOT SECURE!
++
+----
+sudo mkdir /tftpboot
+sudo chmod -R 777 /tftpboot
+sudo chown -R nobody /tftpboot
+sudo chmod g+s /tftpboot
+----
+
+. Restart the xinetd service:
++
+----
+sudo /etc/init.d/xinetd restart
+----
+
+=== DHCP Server installation and configuration
+. Install the DHCP server (if not already done):
++
+----
+sudo apt-get install isc-dhcp-server
+----
+
+. edit the `/etc/network/interfaces` file, where `eth1` is the chosen interface of your host PC to the board:
++
+----
+# Make sure the network ranges match your host system!
+auto eth1
+allow-hotplug eth1
+iface eth1 inet static
+address 192.168.1.1
+netmask 255.255.255.0
+----
+
+. and edit the `/etc/dhcp/dhcpd.conf` file (you can choose to use a statically assigned IP address by updating the lines appropriately):
++
+----
+default-lease-time 600;
+max-lease-time 7200;
+
+# Fixed addresses
+host hostname_goes_here {
+	hardware ethernet 00:11:22:33:44:55;
+	fixed-address 192.168.1.100;
+}
+
+subnet 192.168.1.0 netmask 255.255.255.0 {
+	range 192.168.1.150 192.168.1.200;
+	option routers 192.168.1.254;
+	option domain-name-servers 192.168.1.1, 192.168.1.2;
+}
+----
+
+== Target installation and update
+
+The machines described in this document contain by default a working U-Boot source, however during use it may get overwritten, become corrupted, or simply must be updated. For this scenario Scalys provides several methods of programming a working U-Boot source. Contact Scalys for more information when needed.
+
+=== Connecting to U-Boot on the target
+Assuming that a valid U-Boot source is available on the target, then we can proceed with connecting the target device to our host PC via its serial interface (namely the upper RS232 micro-D connector of the carrier board). Using a terminal application the host may initiate the connection with the default settings of 115200, 8N1, and no flow-control.
+
+=== Update U-Boot
+In the following subsections examples are given to update the relevant data in the respective boot source memory device. The default approach for this would be to do this from a working U-Boot image, which means either an existing image should be available in the current boot source memory device or use an alternative boot source, such as SD card boot.
+
+Here is a list of supported platforms and what boot source they support:
+
+.Boot source support
+[cols="5,^1,^1,^1,^1,^1,^1",width="60%",options="header"]
+|====================
+|Product                          |nor  |nand |sdhc |qspi |spi  |i2c
+|qls1046a-4gb development board   |x    |     |x    |     |     |
+|====================
+
+==== Programming U-Boot onto SD card
+This step is only relevant if your current boot source is invalid and if the machine supports the SD card boot source.
+
+The user can program U-Boot onto the SD card using the following command, wherein the `X` of `/dev/sdX` should be appropriately updated to the SD card device itself:
+
+WARNING: Be careful not to overwrite your own drive by specifying the wrong device!
+
+----
+sudo dd if=u-boot-with-spl-pbl.bin.sdhc of=/dev/sdX bs=512 seek=8 conv=fsync
+----
+
+Optionally, the user can also program the Frame manager firmware on the SD card to have network support. This can be achieved similarly:
+----
+sudo dd if=fsl_fman_ucode_ls1046_r1.0_106_4_18.bin of=/dev/sdX bs=512 seek=18432 conv=fsync
+----
+Note that the offset of this firmware is configured in U-Boot, which may be subject to changes.
+
+Once the SD card has been prepared then the target must be configured to boot from the SD card. Refer to the documentation of the carrier board and the hardware specification document of the QLS1046A-4GB development board on how to achieve this.
+
+==== Update U-Boot using TFTP
+. Put the boot source specific prepared U-Boot image in a directory available though TFTP, i.e. in `/tftpboot/qoriq/`.
+
+. Boot the system, and press any key to go to the U-Boot prompt (assuming you have already setup the connection with the target).
+
+. Set the `TFTP_PATH` variable to specify where the file is located on the TFTP server:
++
+----
+=> setenv TFTP_PATH qoriq
+----
+
+. Update U-Boot:
++
+----
+=> run update-uboot-<boot-source>-nw
+----
+
+==== Update U-Boot using a USB drive
+Place the U-Boot image on a FAT32 formatted USB drive. The image must be named  `u-boot-with-spl-pbl.bin.<boot-source>`. Boot the system, and press any key to go to the U-Boot prompt.
+
+. Update U-Boot:
++
+----
+=> run update-uboot-<boot-source>-usb
+----
+
+==== U-Boot environment
+. To erase the current U-Boot environment one of the following commands depending on the relevant boot source.
++
+TIP: Note that the used offsets/partitions may be board specific and/or modified, and should therefore be verified first to prevent undesired data loss.
++
+** NAND flash: `nand erase.part env`
+** NOR flash: `protect off nor0,1;erase nor0,1`
+** SD card: `mmc erase 1800 10`
+
+. To reinitialize and store the default U-Boot environment configuration use the following commands:
++
+----
+env default -a
+saveenv
+----
+
+=== Update rootfs
+When updating the rootfs on NAND flash it is important not to use the nand erase/write commands because this will remove the wear leveling information of the UBI file system.
+The `ubi` command in U-Boot is aware of the UBI file-system and preserves this metadata.
+
+==== Create rootfs volume
+. This step is only required if the `ubi0:rootfs` volume is not yet created.
++
+----
+#Mount the ubi partition of the NAND flash (determine its name with the 'mtdparts' command)
+ubi part ubipart_nand
+#Check if rootfs volume is already present:
+ubi info l
+#Create the rootfs volume when it is not present:
+ubi create rootfs
+----
+
+. Update the rootfs from U-Boot:
++
+----
+run update-ubi-rootfs-nand
+----
+
+=== Recovery/Update of rootfs or fitimage using USB device
+Copy your working fitimage (named here: `fitimage`) and UBIFS formatted rootfs (named here: `rootfs.ubifs`) on a FAT32 formatted USB drive and insert it in the USB port of the carrier board.
+
+. Now in your U-Boot command line:
++
+----
+#Start/scan USB controller:
+usb start
+#Verify usb device number (in our case 0):
+usb storage
+
+#Rootfs repair/update
+#Fetch the file
+fatload usb 0 ${load_addr} rootfs.ubifs
+#Mount the ubi partition of the NAND flash (determine its name with the 'mtdparts' command)
+ubi part ubipart_nand
+# verify that a ubi volume named 'rootfs' is present (if not perform the 'create rootfs volume' step in the above section and skip the ubifsmount step)
+ubi info l
+#Mount the rootfs ubi volume
+ubifsmount ubi0:rootfs
+#Write the rootfs.ubifs file to the ubi volume
+ubi write ${load_addr} rootfs ${filesize}
+
+# Fitimage repair
+#Load the fitimage to memory and boot to linux.
+fatload usb 0 ${load_addr} fitImage.itb
+bootm ${load_addr}#conf@freescale_qls1046a-4gb-sdk.dtb
+#After booting to linux, the `/boot/fitImage.itb` file should be replaced with a working version.
+----
+
+=== Booting Linux
+==== Boot from network (TFTP)
+. Boot the linux system from U-Boot using the network:
++
+----
+#First make sure the correct bootargs environment variables are present and then run:
+run netboot
+----
+It is also possible to setup a NFS server for the rootfs. This is not described in this manual.
+
+==== Boot from NAND
+. Boot the linux system from U-Boot:
++
+----
+# First make sure the correct bootargs environment variables are present and then run:
+run ubiboot-nand
+----
+
+== Standalone U-Boot build
+While the Yocto build system can generate a fully configured U-Boot image, customization and development of U-Boot is more convenient outside of the Yocto environment. Therefore we provide the following standalone U-Boot building steps:
+
+. Setup the cross-compiler and other missing packages if not already done:
++
+----
+sudo apt-get install gcc-aarch64-linux-gnu bison flex libncurses-dev
+----
+
+. Download and configure the Scalys U-Boot sources:
++
+----
+git clone https://github.com/Scalys/u-boot-qoriq.git -b scalys-2019.04
+cd u-boot-qoriq
+CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 make <scalys-device>_<boot-source>_defconfig
+----
+
+. In the above command the `<scalys-device>_<boot-source>_defconfig` line can be one of the following depending on the product that you have:
+* qls1046a-4gb:
+** `qls1046a_4gb_ifc_nor_defconfig` - U-Boot image prepared for IFC NOR flash boot.
+** `qls1046a_4gb_sdcard_defconfig` -  U-Boot image prepared for SD card boot.
+
+. Optionally, you can now customize the U-Boot features using the command given below.
++
+----
+CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm make menuconfig
+----
+
+. Build U-Boot image:
++
+----
+CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm make -j8
+----
+
+== Linux customization
+In order to customize the kernel we can start with the following steps:
+
+. Make sure you first build a full fsl-image-networking image (Which generates the base `defconfig` file). Now we can modify the kernel configuration using:
++
+----
+bitbake -c menuconfig virtual/kernel
+----
+Note that the made changes are only local and are removed when performing a cleansstate command. See below how to make them permanent.
+
+. Rebuild the kernel
++
+----
+bitbake virtual/kernel
+----
+
+. If not already done, we may also want to update the rootfs (required when new kernel modules are build). This step will also create and insert the new fitimage.
++
+----
+bitbake fsl-image-networking
+----
++
+If we made any changes to the image we may want to add our changes permanently to the Yocto build process. For this refer to the 'Patching the Kernel' chapter of the Yocto reference manual. For any other questions regarding the BSP and Linux we advice to first read the NXP documentation.
+
+[bibliography]
+== References
+- [[[qormino-page,1]]] Teledyne E2V Qormino website, [Online] Available: https://www.teledyne-e2v.com/products/semiconductors/qormino/
+- [[[yocto-page,2]]] Yocto Project, [Online] Available: https://www.yoctoproject.org/
+- [[[lsdk-page,3]]] Layerscape Software Development Kit, [Online] Available: https://lsdk.github.io/
+- [[[yocto-manual,4]]] Yocto Project Mega-Manual zeus/v3.0, [Online] Available: https://www.yoctoproject.org/docs/3.0/mega-manual/mega-manual.html
+
+[appendix]
+
+== Flash configuration
+This section describes the partitioning of relevant flash memories present on the covered products. The information given in this section may be subject to changes, so verification with the related source code and environmental variables is recommended.
+
+=== QLS1046A-4GB NAND and NOR flash partitioning
+
+The partitions can be modified by the user as required, with the only requirement that the bootloader will be located at the start of the NAND flash.
+
+.NOR Partitioning
+[cols="1,2,2,2,5",width="80%",options="header"]
+|====================
+|No.|Name           |Size       |Offset     | Description
+|0  |u-boot         |0x00200000 |0x00000000 | PBL + U-boot
+|1  |env            |0x00040000 |0x00200000 | U-Boot environment storage
+|2  |fman_ucode     |0x00040000 |0x00240000 | Firmware for the Frame Manager.
+|3  |ubipart_nor    |0x01d80000 |0x00280000 | Rootfs in ubifs format (NAND ubipart_nand partition used by default for rootfs)
+|====================
+
+.NAND Partitioning
+[cols="1,2,2,2,5",width="80%",options="header"]
+|====================
+|No.|Name           |Size       |Offset     | Description
+|0  |u-boot         |0x00200000 |0x00000000 | Reserved (NAND boot not supported)
+|1  |env            |0x00040000 |0x00200000 | Reserved (NAND boot not supported)
+|2  |fman_ucode     |0x00040000 |0x00240000 | Reserved (NAND boot not supported)
+|3  |ubipart_nand   |0x3fc80000 |0x00280000 | Rootfs in ubifs format
+|4  |bbt            |0x00100000 |0x3ff00000 |
+|====================
+
+The resulting mtd partitioning in U-Boot is described with the following configuration:
+----
+mtdparts=7e800000.flash:2M@0x0(u-boot),256k(env),256k(fman_ucode),0x3fc80000(ubipart_nand),1M@0x3ff00000(bbt)ro;60000000.nor:2M@0x0(u-boot),256k(env),256k(fman_ucode),-(ubipart_nor)
+----
+
+[appendix]
+
+== Frequently asked questions
+In this section the frequently asked questions are answered.
+
+=== U-Boot
+[qanda]
+How do the environment variables work in U-Boot?::
+    Please first refer to the denx wiki pages or the NXP LSDK documentation for general U-Boot help. The environment variables may be viewed using the `printenv` command and edited using the commands `editenv` and `setenv`. Remember to save the changes using `saveenv` or they will be lost after a reboot. Below you will find a list of relevant variables:
++
+* `bootargs`: Contains arguments that are passed to the Linux kernel. This should contain the used console for instance.
+* `bootcmd`: This variable is executed when the boot timer is finished in U-Boot.
+* `ethXaddr`: It contains the hardware address that will be used by both U-Boot and Linux for an ethernet interface.
+* `ethprime`: This variable specifies which ethernet interface will be tried first in U-Boot.
+* `ethact`: This variable points to the currently active ethernet interface.
+* `ipaddr`: The IP address of the current active interface.
+* `serverip`: The IP address of the TFTP server.
+* `hwconfig`: This variable is used to configure specific hardware by U-Boot and Linux.
+* `load_addr`: Variable used to indicate the default address for TFTP loading.
++
+Several other environment variables are used to update or boot from a specific source.
+
+How can I reset my environment variables in U-Boot?::
+    Refer to section <<U-Boot environment>>.
+
+How can I reduce the noise of the fans after boot-up?::
+    The U-Boot environment variable `setfans` is executed to set the fans default speed to a lower setting. This command is normally executed once the U-Boot countdown has finished. It might be the case that you removed this command from your boot process. Only advanced users should change the `setfans` variable directly as it will influence your system's reliability. Refer to the source code for more details on the `setfans` variable.
+
+=== Linux
+[qanda]
+How can I configure an ethernet interface?::
+    There is a specific set of ethernet interfaces available depending on the chosen target processor and application. The `dmesg` command can be used to view the logs of these specific rename actions. The datasheet of the chosen processor may be used to associate the final name to the actual interface from the device tree. +
+    In the following scenario we are going to configure an interface as a DHCP client. First make sure you already have a DHCP server running in your network as proposed in section <<DHCP Server installation and configuration>>. Modify the following lines with the correct interface name and add them to the `/etc/network/interfaces` file on the QorIQ using your preferred editor. Repeat this for every interfaces you desire to be a DHCP client.
++
+----
+auto _interface_name_
+iface _interface_name_ inet dhcp
+----
+Restart the interface with the following commands:
++
+----
+ifdown _interface_name_ && ifup _interface_name_
+----
+There may also be a scenario where we want a static IP assigned to an interface instead. This can be achieved similarly by adding the following lines to the `/etc/network/interfaces` file:
++
+----
+auto _interface_name_
+iface _interface_name_ inet static
+address 192.168.1.150
+netmask 255.255.255.0
+gateway 192.168.1.1
+----
++
+And then repeat the same `ifdown` and `ifup` commands as executed in the DHCP client scenario.
+
+[appendix]
+
+== Errata
+
+At least the following erratas are applicable in the BSP for the respective product. Refer to the documentation of used components for further applicable erratas when necessary.
+
+* QLS1046A-4GB:
+. The card detect signal of the SDHC interface is available on GPIO4_03 instead of SDHC_CD_B. This has been implemented in the BSP.

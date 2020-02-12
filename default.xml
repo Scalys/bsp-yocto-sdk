@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <default sync-j="1"/>
+
+  <remote fetch="git://git.yoctoproject.org" name="yocto"/>
+  <remote fetch="git://git.openembedded.org" name="oe"/>
+  <remote fetch="https://github.com" name="github"/>
+  <remote fetch="https://source.codeaurora.org/external/qoriq/qoriq-components" name="stash"/>
+
+  <project remote="yocto" revision="4cecfe6e9d9e9216d9235feec25460c4011bf65f" name="poky" path="sources/poky"/>
+  <project remote="yocto" revision="27ddb455543b670097e252ba0d0ad5b7e4101748" name="meta-security" path="sources/meta-security"/>
+  <project remote="yocto" revision="c5b32c4d3a55274c4051c1dc9dc670620fbac5c5" name="meta-selinux" path="sources/meta-selinux"/>
+  <project remote="yocto" revision="04e0d9de8cbaeb76aff6e78b90941a6e9a359b87" name="meta-virtualization" path="sources/meta-virtualization"/>
+  <project remote="yocto" revision="fcf43a2b0a9ca101dd0c4b3d3f7b9fe0278e7173" name="meta-cloud-services" path="sources/meta-cloud-services"/>
+  <project remote="yocto" revision="1db79a1dbe1f6835986196b4570ee70eccd35a64" name="meta-freescale" path="sources/meta-freescale"/>
+  <project remote="oe" revision="1bfaa2e63a184e21a2db5c286444828d5948a8b4" name="meta-openembedded" path="sources/meta-openembedded"/>
+  <project remote="github" revision="4ee8b933cb6a55e7240b738a50c96be76d4ac408" name="Freescale/meta-freescale-distro" path="sources/meta-freescale-distro"/>
+  <project remote="stash" revision="aa8d344cba2e91983083a8fb941dd538d74222d7" name="meta-qoriq-demos" path="sources/meta-qoriq-demos">
+    <copyfile dest="setup-env" src="scripts/setup-env"/>
+  </project>
+  <project remote="github" revision="2ae6976362fd9ad8f771cc318da8da206de0b162" name="Scalys/meta-scalys" path="sources/meta-scalys"/>
+</manifest>
