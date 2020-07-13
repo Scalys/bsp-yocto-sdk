@@ -56,7 +56,7 @@ sudo apt-get install gawk wget git-core diffstat unzip texinfo \
      pylint3 xterm gcc-aarch64-linux-gnu repo
 ----
 
-Additionally, ensure that this system has at least 150GB of free storage space available and 4GB or more RAM memory available. Further details on system requirements can be found in the Yocto documentation<<yocto-manual>>.
+Additionally, ensure that this system has at least 150GB of free storage space available and 8GB or more RAM memory available (less may work too, but then ensure that your SWAP file is enabled!). Further details on system requirements can be found in the Yocto documentation<<yocto-manual>>.
 
 == Yocto build environment
 === General Setup
