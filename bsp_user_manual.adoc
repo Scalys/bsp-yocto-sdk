@@ -36,14 +36,15 @@ The QLS1046A-4GB development board System-on-module (SoM) comes with a Linux Boa
 
 
 .Document revision table
-[width="80%",cols="1,2,7",options="header"]
+[width="100%",cols="1,2,7",options="header"]
 |====================
 |Rev  |Date         |Description
 |1.0  |27 Feb 2020  | First release version with support for the QLS1046A-4GB development board.
+|1.1  |30 Mar 2021  | Minor update as QLS1046A-4GB has support for SFP modules on the SGMII interfaces 5 and 6. Also added repo installation step.
 |====================
 __
 https://scalys.com/ +
-Copyright (C)  2020, Scalys BV.
+Copyright (C)  2021, Scalys BV.
 __
 
 :numbered:
@@ -53,7 +54,7 @@ This document assumes the system used to build the BSP is a clean Ubuntu 18.04.4
 sudo apt-get install gawk wget git-core diffstat unzip texinfo \
      build-essential chrpath socat cpio python python3 python3-pip python3-pexpect \
      xz-utils debianutils iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev \
-     pylint3 xterm gcc-aarch64-linux-gnu repo
+     pylint3 xterm gcc-aarch64-linux-gnu curl
 ----
 
 Additionally, ensure that this system has at least 150GB of free storage space available and 8GB or more RAM memory available (less may work too, but then ensure that your SWAP file is enabled!). Further details on system requirements can be found in the Yocto documentation<<yocto-manual>>.
@@ -82,7 +83,14 @@ cd /home/user/qoriq
 git clone https://github.com/Scalys/bsp-yocto-sdk.git -b zeus
 cd bsp-yocto-sdk/yocto-sdk
 ----
-. Use the repo tool to fetch all the relevant repositories (the alternative to using the repo tool is for the user to manually retrieve the repositories/files described in the `default.xml` manifest file).
+. Use the repo tool to fetch all the relevant repositories (the alternative to using the repo tool is for the user to manually retrieve the repositories/files described in the `default.xml` manifest file). First install the latest repo tool (the package manager provided version results in an error related to using python 2 instead of 3):
++
+----
+mkdir ~/bin
+curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+chmod a+rx ~/bin/repo
+PATH=${PATH}:~/bin
+----
 +
 ----
 repo init -u "file://$PWD/../" -b zeus
@@ -233,7 +241,7 @@ In the following subsections examples are given to update the relevant data in t
 Here is a list of supported platforms and what boot source they support:
 
 .Boot source support
-[cols="5,^1,^1,^1,^1,^1,^1",width="60%",options="header"]
+[cols="5,^1,^1,^1,^1,^1,^1",width="100%",options="header"]
 |====================
 |Product                          |nor  |nand |sdhc |qspi |spi  |i2c
 |qls1046a-4gb development board   |x    |     |x    |     |     |
@@ -524,6 +532,9 @@ gateway 192.168.1.1
 ----
 +
 And then repeat the same `ifdown` and `ifup` commands as executed in the DHCP client scenario.
+
+Which interfaces are located to what slot of the SFP cage?::
+    The `fm1-mac5` interface is the bottom-left slot, and the `fm1-mac6` interface is the top-left. The Finisar FCLF-8522 SFP module has been verified to work for 1000BASE-T Full-duplex. Other modules may need additional configuration. Note: In the default BSP the LED's are not used.
 
 [appendix]
 
