@@ -18,5 +18,5 @@
   <project remote="stash" revision="aa8d344cba2e91983083a8fb941dd538d74222d7" name="meta-qoriq-demos" path="sources/meta-qoriq-demos">
     <copyfile dest="setup-env" src="scripts/setup-env"/>
   </project>
-  <project remote="github" revision="1990498e8933251b21cd9ce887d8ad7d60d26c30" name="Scalys/meta-scalys" path="sources/meta-scalys"/>
+  <project remote="github" revision="b9bd6c93e584dd51fdde01931f90b2049a806099" name="Scalys/meta-scalys" path="sources/meta-scalys"/>
 </manifest>
