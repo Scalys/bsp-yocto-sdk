@@ -17,6 +17,8 @@ This technical reference document serves as a guide on how to build the Board Su
 
 * *QLS1046A-4GB* - Teledyne E2V QLS1046-4GB<<qormino-page>> on a Scalys development board.
 
+NOTE: In this BSP release the QLS1046A-4GB board has support for two variants, namely one without XFI support (default) and one with XFI support. The latter requires hardware patches on the carrier board. By default the output BSP is without XFI support, but if XFI support is needed then use the u-boot image and Linux kernel device tree blob with the `xfi` postfixes instead. Refer to appendix <<XFI support for QLS1046A-4GB>> and/or contact Sintecs for further questions/information to support XFI.
+
 This Yocto SDK<<yocto-page>> BSP is based on the yocto-sdk repository provided by NXP, which uses the latest Yocto project version combined with the more recent LSDK<<lsdk-page>> components. This repository can be found using the following information:
 
 [width="80%",cols="1,7"]
@@ -41,10 +43,11 @@ The QLS1046A-4GB development board System-on-module (SoM) comes with a Linux Boa
 |Rev  |Date         |Description
 |1.0  |27 Feb 2020  | First release version with support for the QLS1046A-4GB development board.
 |1.1  |30 Mar 2021  | Minor update as QLS1046A-4GB has support for SFP modules on the SGMII interfaces 5 and 6. Also added repo installation step.
+|1.2  |2 Nov 2022   | Minor update with XFI support (10Gbit) for the QLS1046A-4GB. Note: Requires hardware patches on the carrier for XFI to work.
 |====================
 __
 https://scalys.com/ +
-Copyright (C)  2021, Scalys BV.
+Copyright (C)  2022, Scalys BV.
 __
 
 :numbered:
@@ -103,7 +106,7 @@ In the above command the environment variable PWD should point to the directory 
 +
 ----
 . ./setup-env -m ls1046ardb
-# Read and accept the licence agreement to proceed.
+# Read and accept the license agreement to proceed.
 bitbake fsl-image-networking
 ----
 In case a problem occurred here, then it is recommended to attempt solving it using the documentation of the yocto-sdk (see reference in introduction), used LSDK components, and/or Yocto project.
@@ -121,7 +124,7 @@ git apply ../setup-env-meta-scalys-layer-support.patch
 +
 ----
 . ./setup-env -m <scalys-machine>
-# Read and accept the licence agreement to proceed.
+# Read and accept the license agreement to proceed.
 ----
 In the above command the `<scalys-machine>` variable can be one of the previously mentioned Scalys machines, e.g. qls1046a-4gb. All supported machines can be displayed by running the command `. ./setup-env`.
 
@@ -137,8 +140,7 @@ TIP: NXP also provides other images such as fsl-image-networking-full, which fea
 The Yocto system generates a number of images. The images are located in the `tmp/deploy/images/<scalys-machine>` directory. A number of relevant images are:
 
 * *u-boot-<boot-source>-2019.04+fslgit-r0.bin* +
-U-Boot image which can be flashed to the respective boot source memory device. This image contains the RCW, PBL and main
-bootloader. Customized versions may be build using the standalone building steps provided later on in this document.
+U-Boot image which can be flashed to the respective boot source memory device. This image contains the RCW, PBL and main bootloader. Customized versions may be build using the standalone building steps provided later on in this document. Note: you may need to rename these files to match the environment variables in U-Boot when updating them.
 * *fitImage* +
 FIT image containing the kernel, and the device tree.
 * *fsl-image-networking-<scalys-machine>.rootfs.ubifs* +
@@ -147,6 +149,7 @@ Rootfs in the UBIFS format, ready to be flashed to the NAND flash.
 Rootfs in an archive. This file can be extracted to a local NFS location for network boot, or to a USB/SATA disk for target boot.
 * *fsl_fman_ucode_<cpu>_<version>.bin* +
 Frame Manager firmware which must be present for the ethernet interfaces to operate.
+
 
 == Configure system for booting from network
 These steps are optional and only necessary when the target is connected directly to the computer used to build the BSP.
@@ -243,8 +246,8 @@ Here is a list of supported platforms and what boot source they support:
 .Boot source support
 [cols="5,^1,^1,^1,^1,^1,^1",width="100%",options="header"]
 |====================
-|Product                          |nor  |nand |sdhc |qspi |spi  |i2c
-|qls1046a-4gb development board   |x    |     |x    |     |     |
+|Product                          |ifc nor  |ifc nand |sdhc |qspi |spi  |i2c
+|qls1046a-4gb development board   |x        |         |x    |     |     |
 |====================
 
 ==== Programming U-Boot onto SD card
@@ -399,6 +402,10 @@ CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 make <scalys-device>_<boot-source>_d
 * qls1046a-4gb:
 ** `qls1046a_4gb_ifc_nor_defconfig` - U-Boot image prepared for IFC NOR flash boot.
 ** `qls1046a_4gb_sdcard_defconfig` -  U-Boot image prepared for SD card boot.
+** `qls1046a_4gb_ifc_nor_xfi_defconfig` - U-Boot image prepared for IFC NOR flash boot with XFI support.
+** `qls1046a_4gb_sdcard_xfi_defconfig` -  U-Boot image prepared for SD card boot with XFI support.
++
+Refer to <<XFI support for QLS1046A-4GB>> for using the XFI supported versions.
 
 . Optionally, you can now customize the U-Boot features using the command given below.
 +
@@ -411,6 +418,8 @@ CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm make menuconfig
 ----
 CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm make -j8
 ----
+
+The output image specific to the chosen configuration will be located in the root directory as the file `u-boot-with-spl-pbl.bin`. It may be necessary to modify the name of this image to match the U-Boot environment variables.
 
 == Linux customization
 In order to customize the kernel we can start with the following steps:
@@ -459,7 +468,8 @@ The partitions can be modified by the user as required, with the only requiremen
 |0  |u-boot         |0x00200000 |0x00000000 | PBL + U-boot
 |1  |env            |0x00040000 |0x00200000 | U-Boot environment storage
 |2  |fman_ucode     |0x00040000 |0x00240000 | Firmware for the Frame Manager.
-|3  |ubipart_nor    |0x01d80000 |0x00280000 | Rootfs in ubifs format (NAND ubipart_nand partition used by default for rootfs)
+|3  |cortina_ucode  |0x00040000 |0x00280000 | Cortina Retimer PHY microcode
+|4  |ubipart_nor    |0x01d40000 |0x002c0000 | Rootfs in ubifs format (NAND ubipart_nand partition used by default for rootfs)
 |====================
 
 .NAND Partitioning
@@ -469,13 +479,14 @@ The partitions can be modified by the user as required, with the only requiremen
 |0  |u-boot         |0x00200000 |0x00000000 | Reserved (NAND boot not supported)
 |1  |env            |0x00040000 |0x00200000 | Reserved (NAND boot not supported)
 |2  |fman_ucode     |0x00040000 |0x00240000 | Reserved (NAND boot not supported)
-|3  |ubipart_nand   |0x3fc80000 |0x00280000 | Rootfs in ubifs format
-|4  |bbt            |0x00100000 |0x3ff00000 |
+|3  |cortina_ucode  |0x00040000 |0x00280000 | Reserved (NAND boot not supported)
+|4  |ubipart_nand   |0x3fc80000 |0x002c0000 | Rootfs in ubifs format
+|5  |bbt            |0x00100000 |0x3ff00000 |
 |====================
 
 The resulting mtd partitioning in U-Boot is described with the following configuration:
 ----
-mtdparts=7e800000.flash:2M@0x0(u-boot),256k(env),256k(fman_ucode),0x3fc80000(ubipart_nand),1M@0x3ff00000(bbt)ro;60000000.nor:2M@0x0(u-boot),256k(env),256k(fman_ucode),-(ubipart_nor)
+mtdparts=7e800000.flash:2M@0x0(u-boot),256k(env),256k(fman_ucode),256k(cortina_ucode),0x3fc80000(ubipart_nand),1M@0x3ff00000(bbt)ro;60000000.nor:2M@0x0(u-boot),256k(env),256k(fman_ucode),256k(cortina_ucode),-(ubipart_nor)
 ----
 
 [appendix]
@@ -544,3 +555,39 @@ At least the following erratas are applicable in the BSP for the respective prod
 
 * QLS1046A-4GB:
 . The card detect signal of the SDHC interface is available on GPIO4_03 instead of SDHC_CD_B. This has been implemented in the BSP.
+
+[appendix]
+
+==  XFI support for QLS1046A-4GB
+A few things are needed to use the QLS1046A-4GB BSP with XFI support, namely:
+
+. Ensure a U-Boot image is used with XFI support. Refer to section <<Generated Images>> to find the relevant Yocto output image or section <<Standalone U-Boot build>> how to build this image yourself.
+. Ensure a correctly hardware patched carrier is used. Contact Sintecs for details if needed. Optionally, you can also add a suitable heatsink on the Cortina retimer IC.
+. Ensure you boot the Linux image with the XFI specific device tree blob (`qls1046a-4gb-sdk-xfi.dtb` as the separate .dtb or `freescale_qls1046a-4gb-sdk-xfi.dtb` as the configuration in the fitImage) which can be achieved by editing the relevant U-Boot boot environment variable. For booting the rootfs from the NAND flash this is achieved by editing the `ubiboot-nand` variable. If you still have an old BSP rootfs (ubifs) image in your NAND flash, then you also need to update this if you want to boot from it with XFI support. First interrupt U-Boot from automatically booting to Linux and then enter the following command:
++
+----
+setenv ubiboot-nand "ubi part ubipart_nand;ubifsmount ubi0:rootfs;ubifsload '${load_addr}' /boot/fitImage;run set_ubiboot_args_nand;bootm '${load_addr}'#conf@freescale_qls1046a-4gb-sdk-xfi.dtb"
+----
++
+TIP: You can also use the `editenv` command instead to modify the device tree blob configuration name.
++
+And then (optionally) you can save the changes to the environment variables with the following command to keep them after powering off the system:
++
+----
+saveenv
+----
+
+
+To test the XFI interfaces you must first connect the external SFP+ interface to a suitable remote system.
+
+. The following options were verified to work:
+.. SFPE-010-1000-NE-32 (copper)
+.. SFP-10GSR-85 (optical)
++
+You must connect it to the top right or bottom right SFP(+) cage slots of the carrier to connect to the XFI interface of the LS1046A.
+
+. Then depending on if you want to test under U-Boot or Linux you can do the following:
+.. Under U-Boot you must set the acting ethernet interface (`ethact`) to `FM1@TGEC1` for the bottom right SFP cage slot and `FM1@TGEC2` for the top right SFP cage slot. Then set the `ipaddr` variable to a suitable IP address and then `ping` the remote side.
+.. Under Linux you can configure the `fm1-mac9` interface (bottom right SFP cage slot) and/or `fm1-mac10` interface (top right SFP cage slot) to a desired IP address and then `ping` the remote side or use for instance `iperf` to test the bandwidth.
+
+NOTE: Due to hardware limitations an issue on the MDIO 1 bus may occur due to clause 22 and clause 45 compatibility mismatch. By selecting the Cortina PHY MDIO addresses correctly this can be circumvented and due to both XFI interfaces are configured as fixed links under Linux no traffic will occur on the MDIO bus after initial configuration in U-Boot.
