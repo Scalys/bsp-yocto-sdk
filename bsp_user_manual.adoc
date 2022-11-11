@@ -44,6 +44,7 @@ The QLS1046A-4GB development board System-on-module (SoM) comes with a Linux Boa
 |1.0  |27 Feb 2020  | First release version with support for the QLS1046A-4GB development board.
 |1.1  |30 Mar 2021  | Minor update as QLS1046A-4GB has support for SFP modules on the SGMII interfaces 5 and 6. Also added repo installation step.
 |1.2  |2 Nov 2022   | Minor update with XFI support (10Gbit) for the QLS1046A-4GB. Note: Requires hardware patches on the carrier for XFI to work.
+|1.3   |11 Nov 2022  | Added explicit instructions to program the Cortina PHY firmware needed for the XFI interface for the QLS1046A-4GB.
 |====================
 __
 https://scalys.com/ +
@@ -144,11 +145,13 @@ U-Boot image which can be flashed to the respective boot source memory device. T
 * *fitImage* +
 FIT image containing the kernel, and the device tree.
 * *fsl-image-networking-<scalys-machine>.rootfs.ubifs* +
-Rootfs in the UBIFS format, ready to be flashed to the NAND flash.
+Rootfs in the UBIFS format, ready to be flashed to the NAND flash. This already contains the fitImage in its `/boot` directory.
 * *fsl-image-networking-<scalys-machine>.rootfs.tar.gz* +
 Rootfs in an archive. This file can be extracted to a local NFS location for network boot, or to a USB/SATA disk for target boot.
 * *fsl_fman_ucode_<cpu>_<version>.bin* +
 Frame Manager firmware which must be present for the ethernet interfaces to operate.
+* *cs4315-cs4340-PHY-ucode.txt* +
+Cortina PHY firmware needed for the XFI interface to work. Refer to appendix <<XFI support for QLS1046A-4GB>> for more details.
 
 
 == Configure system for booting from network
@@ -561,8 +564,9 @@ At least the following erratas are applicable in the BSP for the respective prod
 ==  XFI support for QLS1046A-4GB
 A few things are needed to use the QLS1046A-4GB BSP with XFI support, namely:
 
-. Ensure a U-Boot image is used with XFI support. Refer to section <<Generated Images>> to find the relevant Yocto output image or section <<Standalone U-Boot build>> how to build this image yourself.
 . Ensure a correctly hardware patched carrier is used. Contact Sintecs for details if needed. Optionally, you can also add a suitable heatsink on the Cortina retimer IC.
+. Ensure a U-Boot image is used with XFI support. Refer to section <<Generated Images>> to find the relevant Yocto output image or section <<Standalone U-Boot build>> how to build this image yourself.
+. Ensure the Cortina PHY firmware is programmed in the NOR flash under U-Boot with the command `usb start; run update-cortina-ucode-nor-usb` whilst the microcode file `cs4315-cs4340-PHY-ucode.txt` is present on the attached (FAT32 formatted) USB storage device. Ensure to reboot afterwards for the microcode to take effect. The microcode file is provided by the Yocto BSP build.
 . Ensure you boot the Linux image with the XFI specific device tree blob (`qls1046a-4gb-sdk-xfi.dtb` as the separate .dtb or `freescale_qls1046a-4gb-sdk-xfi.dtb` as the configuration in the fitImage) which can be achieved by editing the relevant U-Boot boot environment variable. For booting the rootfs from the NAND flash this is achieved by editing the `ubiboot-nand` variable. If you still have an old BSP rootfs (ubifs) image in your NAND flash, then you also need to update this if you want to boot from it with XFI support. First interrupt U-Boot from automatically booting to Linux and then enter the following command:
 +
 ----
