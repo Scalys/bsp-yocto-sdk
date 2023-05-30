@@ -23,7 +23,7 @@ This Yocto SDK<<yocto-page>> BSP is based on the yocto-sdk repository provided b
 
 [width="80%",cols="1,7"]
 |====================
-|URL|https://source.codeaurora.org/external/qoriq/qoriq-components/yocto-sdk
+|URL|https://github.com/nxp-qoriq/yocto-sdk
 |Commit|0f9acb1fa39ebd7b11319bff1a0a651589e0ef23
 |====================
 
@@ -45,11 +45,12 @@ The QLS1046A-4GB development board System-on-module (SoM) comes with a Linux Boa
 |1.1  |30 Mar 2021  | Minor update as QLS1046A-4GB has support for SFP modules on the SGMII interfaces 5 and 6. Also added repo installation step.
 |1.2  |2 Nov 2022   | Minor update with XFI support (10Gbit) for the QLS1046A-4GB. Note: Requires hardware patches on the carrier for XFI to work.
 |1.3   |11 Nov 2022  | Added explicit instructions to program the Cortina PHY firmware needed for the XFI interface for the QLS1046A-4GB.
-|1.4   | 12 Dec 2022 | Added note in XFI appendix to appropriately set S1007 of the carrier.
+|1.4   |12 Dec 2022 | Added note in XFI appendix to appropriately set S1007 of the carrier.
+|1.5   |30 May 2023 | Updated repository referentes to point to the new NXP repositories after their migration from codeaurora. Added errata note on reduced eSDHC maximum clock frequency.
 |====================
 __
 https://scalys.com/ +
-Copyright (C)  2022, Scalys BV.
+Copyright (C)  2023, Scalys BV.
 __
 
 :numbered:
@@ -559,6 +560,7 @@ At least the following erratas are applicable in the BSP for the respective prod
 
 * QLS1046A-4GB:
 . The card detect signal of the SDHC interface is available on GPIO4_03 instead of SDHC_CD_B. This has been implemented in the BSP.
+. The eSDHC interface can only operate up to 25MHz (SD full speed) instead of 50MHz (SD High speed) due to limitations of the level shifter on the simc-tcb2 carrier board.
 
 [appendix]
 
