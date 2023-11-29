@@ -15,16 +15,17 @@ This may require you to install some additional packages from the package manage
 == Introduction
 This technical reference document serves as a guide on how to build the Board Support Package (BSP) for the following Scalys devices:
 
-* *QLS1046A-4GB* - Teledyne E2V QLS1046-4GB<<qormino-page>> on a Scalys development board.
-
-NOTE: In this BSP release the QLS1046A-4GB board has support for two variants, namely one without XFI support (default) and one with XFI support. The latter requires hardware patches on the carrier board. By default the output BSP is without XFI support, but if XFI support is needed then use the u-boot image and Linux kernel device tree blob with the `xfi` postfixes instead. Refer to appendix <<XFI support for QLS1046A-4GB>> and/or contact Sintecs for further questions/information to support XFI.
+* *qls1046a-4gb-dk* - Teledyne E2V QLS1046-4GB<<qormino-page>> on a Scalys development board and a SiMC-TCB02 (Dragonfruit) v3.0 carrier board.
+* *qls1046a-4gb-dkb* - Teledyne E2V QLS1046-4GB<<qormino-page>> on a Scalys development board and a SiMC-TCB02 (Dragonfruit) v3.0 and newer.
++
+NOTE: In this BSP release the qls1046a-4gb-dk(b) board has support for two variants, namely one without XFI support (default) and one with XFI support. The latter requires hardware patches on the carrier board. By default the output BSP is without XFI support, but if XFI support is needed then use the u-boot image and Linux kernel device tree blob with the `xfi` postfixes instead. Refer to appendix <<XFI support for qls1046a-4gb-dk(b)>> and/or contact Sintecs for further questions/information to support XFI.
 
 This Yocto SDK<<yocto-page>> BSP is based on the yocto-sdk repository provided by NXP, which uses the latest Yocto project version combined with the more recent LSDK<<lsdk-page>> components. This repository can be found using the following information:
 
 [width="80%",cols="1,7"]
 |====================
 |URL|https://github.com/nxp-qoriq/yocto-sdk
-|Commit|0f9acb1fa39ebd7b11319bff1a0a651589e0ef23
+|Commit|c289817e8576cf275f1cff4f222103dbbee9d613
 |====================
 
 Refer to the documentation in the above mentioned repository for further information if desired. Additionally, the documentation of the LSDK<<lsdk-page>>, and Yocto project<<yocto-manual>> itself is also a relevant source for information.
@@ -46,7 +47,8 @@ The QLS1046A-4GB development board System-on-module (SoM) comes with a Linux Boa
 |1.2  |2 Nov 2022   | Minor update with XFI support (10Gbit) for the QLS1046A-4GB. Note: Requires hardware patches on the carrier for XFI to work.
 |1.3   |11 Nov 2022  | Added explicit instructions to program the Cortina PHY firmware needed for the XFI interface for the QLS1046A-4GB.
 |1.4   |12 Dec 2022 | Added note in XFI appendix to appropriately set S1007 of the carrier.
-|1.5   |30 May 2023 | Updated repository referentes to point to the new NXP repositories after their migration from codeaurora. Added errata note on reduced eSDHC maximum clock frequency.
+|1.5   |30 May 2023 | Updated repository references to point to the new NXP repositories after their migration from codeaurora. Added errata note on reduced eSDHC maximum clock frequency.
+|1.6   |24 Nov 2023 | Updated Yocto to the new 'kirkstone' branch. The machine config was renamed to qls1046-4gb-dkb, and a new machine config file, qls1046-4gb-dk, was added for boards with a 50MHz SDHC interface.
 |====================
 __
 https://scalys.com/ +
@@ -55,12 +57,14 @@ __
 
 :numbered:
 == Dependencies
-This document assumes the system used to build the BSP is a clean Ubuntu 18.04.4 LTS installation. In addition, a few extra packages must be installed, which are given in the following command:
+This document assumes the system used to build the BSP is a clean Ubuntu 22.04.3 LTS installation. In addition, a few extra packages must be installed, which are given in the following command:
 ----
-sudo apt-get install gawk wget git-core diffstat unzip texinfo \
-     build-essential chrpath socat cpio python python3 python3-pip python3-pexpect \
-     xz-utils debianutils iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev \
-     pylint3 xterm gcc-aarch64-linux-gnu curl
+sudo apt install gawk wget git diffstat unzip texinfo gcc \
+    build-essential chrpath socat cpio python3 python3-pip \
+    python3-pexpect xz-utils debianutils iputils-ping python3-git \
+    python3-jinja2 libegl1-mesa libsdl1.2-dev pylint3 xterm \
+    python3-subunit mesa-common-dev zstd liblz4-tool \
+    python-is-python3
 ----
 
 Additionally, ensure that this system has at least 150GB of free storage space available and 8GB or more RAM memory available (less may work too, but then ensure that your SWAP file is enabled!). Further details on system requirements can be found in the Yocto documentation<<yocto-manual>>.
@@ -86,7 +90,7 @@ cd /home/user/qoriq
 . Download the repository containing the BSP manifest and patch(es).
 +
 ----
-git clone https://github.com/Scalys/bsp-yocto-sdk.git -b zeus
+git clone https://github.com/Scalys/bsp-yocto-sdk.git -b kirkstone
 cd bsp-yocto-sdk/yocto-sdk
 ----
 . Use the repo tool to fetch all the relevant repositories (the alternative to using the repo tool is for the user to manually retrieve the repositories/files described in the `default.xml` manifest file). First install the latest repo tool (the package manager provided version results in an error related to using python 2 instead of 3):
@@ -99,7 +103,7 @@ PATH=${PATH}:~/bin
 ----
 +
 ----
-repo init -u "file://$PWD/../" -b zeus
+repo init -u "file://$PWD/../" -b kirkstone
 # you may get the question to enable color display for your user account. Decline this unless it is desired.
 repo sync -j4
 ----
@@ -115,21 +119,20 @@ bitbake fsl-image-networking
 In case a problem occurred here, then it is recommended to attempt solving it using the documentation of the yocto-sdk (see reference in introduction), used LSDK components, and/or Yocto project.
 
 === Scalys SDK update
-In this section we will modify the setup-env file to include the meta-scalys layer and start building the actual BSP.
+In this section we will start building the actual BSP.
 
-. Patch the environment setup script to add the Scalys machines:
-+
-----
-cd /home/user/qoriq/bsp-yocto-sdk/yocto-sdk
-git apply ../setup-env-meta-scalys-layer-support.patch
-----
 . Create a new build for the Scalys machine (make sure to do this in a clean shell):
 +
 ----
 . ./setup-env -m <scalys-machine>
 # Read and accept the license agreement to proceed.
 ----
-In the above command the `<scalys-machine>` variable can be one of the previously mentioned Scalys machines, e.g. qls1046a-4gb. All supported machines can be displayed by running the command `. ./setup-env`.
+In the above command the `<scalys-machine>` variable can be one of the following Scalys machines:
++
+* qls1046-4gb-dkb - The default machine configuration with a 25MHz SDHC interface. It is *recommended* to use this on all versions of the SiMC-TCB02/Dragonfruit carrier board.
+* qls1046-4gb-dk - The old machine configuration with a 50MHz SDHC interface intended only for SiMC-TCB02/Dragonfruit carrier board versions v3.0.
++
+All supported machines can be displayed by running the command `. ./setup-env`.
 
 . Start building the BSP:
 +
@@ -142,22 +145,27 @@ TIP: NXP also provides other images such as fsl-image-networking-full, which fea
 ==== Generated Images
 The Yocto system generates a number of images. The images are located in the `tmp/deploy/images/<scalys-machine>` directory. A number of relevant images are:
 
-* *u-boot-<boot-source>-2019.04+fslgit-r0.bin* +
-U-Boot image which can be flashed to the respective boot source memory device. This image contains the RCW, PBL and main bootloader. Customized versions may be build using the standalone building steps provided later on in this document. Note: you may need to rename these files to match the environment variables in U-Boot when updating them.
+* *atf/bl2_<boot-source>.pbl* +
+BL2 image which can be flashed to the respective boot source memory device. This image contains the RCW, PBL and second-stage bootloader(in the context of the ARM Trusted Firmware), which is responsible for tasks like initializing memory, setting up the execution environment, and loading the next stage of the bootloader. Customized versions may be build using the standalone building steps provided later on in this document. 
+* *atf/fip_uboot_<boot-source>.bin* +
+FIP_U-Boot image contains the Firmware Image Package (FIP) for U-Boot and the main U-Boot binary.
 * *fitImage* +
 FIT image containing the kernel, and the device tree.
 * *fsl-image-networking-<scalys-machine>.rootfs.ubifs* +
 Rootfs in the UBIFS format, ready to be flashed to the NAND flash. This already contains the fitImage in its `/boot` directory.
 * *fsl-image-networking-<scalys-machine>.rootfs.tar.gz* +
 Rootfs in an archive. This file can be extracted to a local NFS location for network boot, or to a USB/SATA disk for target boot.
+* *fsl-image-networking-<scalys-machine>.rootfs.wic* +
+Bootloader and Rootfs combined in an image for an SD card. This file can be written directly to the SD card.
 * *fsl_fman_ucode_<cpu>_<version>.bin* +
 Frame Manager firmware which must be present for the ethernet interfaces to operate.
 * *cs4315-cs4340-PHY-ucode.txt* +
-Cortina PHY firmware needed for the XFI interface to work. Refer to appendix <<XFI support for QLS1046A-4GB>> for more details.
+Cortina PHY firmware needed for the XFI interface to work. Refer to appendix <<XFI support for qls1046a-4gb-dk(b)>> for more details.
 
+NOTE: You may need to rename these files to match the environment variables in U-Boot when updating them.
 
 == Configure system for booting from network
-These steps are optional and only necessary when the target is connected directly to the computer used to build the BSP.
+These steps are optional and only necessary when the target is connected directly to the computer used to build the BSP. You are free to use your own TFTP and DHCP server when desired.
 
 === TFTP server installation and configuration
 . Install the TFTP server (if not already done):
@@ -243,7 +251,7 @@ The machines described in this document contain by default a working U-Boot sour
 === Connecting to U-Boot on the target
 Assuming that a valid U-Boot source is available on the target, then we can proceed with connecting the target device to our host PC via its serial interface (namely the upper RS232 micro-D connector of the carrier board). Using a terminal application the host may initiate the connection with the default settings of 115200, 8N1, and no flow-control.
 
-=== Update U-Boot
+=== Updating the bootloader
 In the following subsections examples are given to update the relevant data in the respective boot source memory device. The default approach for this would be to do this from a working U-Boot image, which means either an existing image should be available in the current boot source memory device or use an alternative boot source, such as SD card boot.
 
 Here is a list of supported platforms and what boot source they support:
@@ -251,19 +259,20 @@ Here is a list of supported platforms and what boot source they support:
 .Boot source support
 [cols="5,^1,^1,^1,^1,^1,^1",width="100%",options="header"]
 |====================
-|Product                          |ifc nor  |ifc nand |sdhc |qspi |spi  |i2c
-|qls1046a-4gb development board   |x        |         |x    |     |     |
+|Product                                |ifc nor  |ifc nand |sdhc |qspi |spi  |i2c
+|qls1046a-4gb-dk(b) development board   |x        |         |x    |     |     |
 |====================
 
-==== Programming U-Boot onto SD card
+==== Programming BL2/FIP_U-Boot onto SD card
 This step is only relevant if your current boot source is invalid and if the machine supports the SD card boot source.
 
-The user can program U-Boot onto the SD card using the following command, wherein the `X` of `/dev/sdX` should be appropriately updated to the SD card device itself:
+The user can program BL2/FIP_U-Boot onto the SD card using the following commands, wherein the `X` of `/dev/sdX` should be appropriately updated to the SD card device itself:
 
 WARNING: Be careful not to overwrite your own drive by specifying the wrong device!
 
 ----
-sudo dd if=u-boot-with-spl-pbl.bin.sdhc of=/dev/sdX bs=512 seek=8 conv=fsync
+sudo dd if=atf/bl2_sd.pbl of=/dev/sdX bs=512 seek=8 conv=fsync
+sudo dd if=atf/fip_uboot_sd.bin of=/dev/sdX bs=512 seek=2048 conv=fsync
 ----
 
 Optionally, the user can also program the Frame manager firmware on the SD card to have network support. This can be achieved similarly:
@@ -272,10 +281,10 @@ sudo dd if=fsl_fman_ucode_ls1046_r1.0_106_4_18.bin of=/dev/sdX bs=512 seek=18432
 ----
 Note that the offset of this firmware is configured in U-Boot, which may be subject to changes.
 
-Once the SD card has been prepared then the target must be configured to boot from the SD card. Refer to the documentation of the carrier board and the hardware specification document of the QLS1046A-4GB development board on how to achieve this.
+Once the SD card has been prepared then the target must be configured to boot from the SD card. Refer to the documentation of the carrier board and the hardware specification document of the development board on how to achieve this.
 
-==== Update U-Boot using TFTP
-. Put the boot source specific prepared U-Boot image in a directory available though TFTP, i.e. in `/tftpboot/qoriq/`.
+==== Update bootloader using TFTP
+. Put the boot source specific prepared BL2 and FIP image in a directory available though TFTP, i.e. in `/tftpboot/qoriq/`. The images must be named  `bl2_<boot-source>.bin` and `fip_uboot_<boot-source>.bin` respectively. Boot the system, and press any key to go to the U-Boot prompt.
 
 . Boot the system, and press any key to go to the U-Boot prompt (assuming you have already setup the connection with the target).
 
@@ -285,16 +294,28 @@ Once the SD card has been prepared then the target must be configured to boot fr
 => setenv TFTP_PATH qoriq
 ----
 
-. Update U-Boot:
+. Update BL2 image:
++
+----
+=> run update-bl2-<boot-source>-nw
+----
+
+. Update the FIP image (U-Boot):
 +
 ----
 => run update-uboot-<boot-source>-nw
 ----
 
-==== Update U-Boot using a USB drive
-Place the U-Boot image on a FAT32 formatted USB drive. The image must be named  `u-boot-with-spl-pbl.bin.<boot-source>`. Boot the system, and press any key to go to the U-Boot prompt.
+==== Update bootloader using a USB drive
+Place the boot source specific prepared BL2 and FIP image on a FAT32 formatted USB drive. The images must be named  `bl2_<boot-source>.bin` and `fip_uboot_<boot-source>.bin` respectively. Boot the system, and press any key to go to the U-Boot prompt.
 
-. Update U-Boot:
+. Update BL2 image:
++
+----
+=> run update-bl2-<boot-source>-usb
+----
+
+. Update the FIP image (U-Boot):
 +
 ----
 => run update-uboot-<boot-source>-usb
@@ -307,7 +328,7 @@ TIP: Note that the used offsets/partitions may be board specific and/or modified
 +
 ** NAND flash: `nand erase.part env`
 ** NOR flash: `protect off nor0,1;erase nor0,1`
-** SD card: `mmc erase 1800 10`
+** SD card: `mmc erase 2800 10`
 
 . To reinitialize and store the default U-Boot environment configuration use the following commands:
 +
@@ -386,20 +407,26 @@ It is also possible to setup a NFS server for the rootfs. This is not described 
 run ubiboot-nand
 ----
 
-== Standalone U-Boot build
-While the Yocto build system can generate a fully configured U-Boot image, customization and development of U-Boot is more convenient outside of the Yocto environment. Therefore we provide the following standalone U-Boot building steps:
+== Standalone ATF and U-Boot build
+We recommend to build the RCW/PBL, U-Boot, ATF images using Yocto due to their complexity. However customization and development of these images may be desired outside of the Yocto environment. Therefore we provide the following standalone building steps for only the basic configurations. Please refer to the Yocto recipes for other configurations.
 
+=== Setup
 . Setup the cross-compiler and other missing packages if not already done:
 +
 ----
-sudo apt-get install gcc-aarch64-linux-gnu bison flex libncurses-dev
+sudo apt-get install gcc-aarch64-linux-gnu bison flex libncurses-dev python3
 ----
 
-. Download and configure the Scalys U-Boot sources:
+=== U-Boot
+. Download and configure the U-Boot sources similar to the Yocto build:
 +
 ----
-git clone https://github.com/Scalys/u-boot-qoriq.git -b scalys-2019.04
-cd u-boot-qoriq
+git clone https://github.com/nxp-qoriq/u-boot.git
+cd u-boot
+git checkout 181859317bfafef1da79c59a4498650168ad9df6
+wget https://raw.githubusercontent.com/Scalys/meta-scalys/kirkstone/recipes-bsp/u-boot/u-boot-qoriq/0001-Added-support-for-qls1046a4gb.patch
+git apply 0001-Added-support-for-qls1046a4gb.patch
+# depending on the machine build you may need to apply additional patches.
 CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 make <scalys-device>_<boot-source>_defconfig
 ----
 
@@ -410,7 +437,7 @@ CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 make <scalys-device>_<boot-source>_d
 ** `qls1046a_4gb_ifc_nor_xfi_defconfig` - U-Boot image prepared for IFC NOR flash boot with XFI support.
 ** `qls1046a_4gb_sdcard_xfi_defconfig` -  U-Boot image prepared for SD card boot with XFI support.
 +
-Refer to <<XFI support for QLS1046A-4GB>> for using the XFI supported versions.
+Refer to <<XFI support for qls1046a-4gb-dk(b)>> for using the XFI supported versions.
 
 . Optionally, you can now customize the U-Boot features using the command given below.
 +
@@ -424,7 +451,40 @@ CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm make menuconfig
 CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm make -j8
 ----
 
-The output image specific to the chosen configuration will be located in the root directory as the file `u-boot-with-spl-pbl.bin`. It may be necessary to modify the name of this image to match the U-Boot environment variables.
+=== RCW
+. Download, configure, and build the sources similar to the Yocto build:
++
+----
+git clone https://github.com/nxp-qoriq/rcw
+cd rcw
+git checkout a4db86818de35d0168a48d3f17878ec68fb1cf6d
+wget https://raw.githubusercontent.com/Scalys/meta-scalys/kirkstone/recipes-bsp/rcw/rcw/0001-Added-support-for-qls1046a4gb.patch
+git apply 0001-Added-support-for-qls1046a4gb.patch
+# If necessary you can edit the relevant RCW configuration of the qls1046a-4gb target.
+make all
+----
+
+=== ATF (BL2 and FIP images)
+. Download, configure, and build the sources similar to the Yocto build:
++
+----
+git clone https://github.com/nxp-qoriq/atf.git
+cd atf
+git checkout 3c1583ba0a5d11e5116332e91065cb3740153a46
+wget https://raw.githubusercontent.com/Scalys/meta-scalys/kirkstone/recipes-bsp/atf/qoriq-atf/0001-Added-support-for-qls1046a4gb.patch
+git apply 0001-Added-support-for-qls1046a4gb.patch
+CROSS_COMPILE=aarch64-linux-gnu- make V=1 all fip pbl PLAT=qls1046a4gb BOOT_MODE=<BOOTMODE> RCW=<rcw_path/rcw_.bin> BL33=<u-boot_path/u-boot.bin>
+----
++
+For example the following would be the standard possible builds similar for the qls1046a-4gb-dkb Yocto machine configuration:
++
+----
+CROSS_COMPILE=aarch64-linux-gnu- make V=1 all fip pbl PLAT=qls1046a4gb BOOT_MODE=sd RCW=../rcw/qls1046a-4gb/RR_SSSSPPPP_3333_8888/rcw_1600_sdboot.bin BL33=../u-boot/u-boot.bin
+
+CROSS_COMPILE=aarch64-linux-gnu- make V=1 all fip pbl PLAT=qls1046a4gb BOOT_MODE=nor RCW=../rcw/qls1046a-4gb/RR_SSSSPPPP_3333_8888/rcw_1600_ifc_nor.bin BL33=../u-boot/u-boot.bin
+----
+
+The output image bl2_<BOOTMODE>.pbl (containing the RCW PBL data) and fip.bin (containing the U-Boot image) specific to the chosen configuration will be located in the build/qls1046a4gb/<BUILD_TYPE>/. It may be necessary to modify the name of this image to match the U-Boot environment variables. Please refer to section <<Updating the bootloader>> on how to actually program these images.
 
 == Linux customization
 In order to customize the kernel we can start with the following steps:
@@ -452,10 +512,10 @@ If we made any changes to the image we may want to add our changes permanently t
 
 [bibliography]
 == References
-- [[[qormino-page,1]]] Teledyne E2V Qormino website, [Online] Available: https://www.teledyne-e2v.com/products/semiconductors/qormino/
+- [[[qormino-page,1]]] Teledyne E2V Qormino website, [Online] Available: https://semiconductors.teledyneimaging.com/en/products/qormino-processing-modules/
 - [[[yocto-page,2]]] Yocto Project, [Online] Available: https://www.yoctoproject.org/
 - [[[lsdk-page,3]]] Layerscape Software Development Kit, [Online] Available: https://lsdk.github.io/
-- [[[yocto-manual,4]]] Yocto Project Mega-Manual zeus/v3.0, [Online] Available: https://www.yoctoproject.org/docs/3.0/mega-manual/mega-manual.html
+- [[[yocto-manual,4]]] Yocto Project Mega-Manual krikstone/v4.0, [Online] Available: https://docs.yoctoproject.org/4.0.14/singleindex.html
 
 [appendix]
 
@@ -470,28 +530,30 @@ The partitions can be modified by the user as required, with the only requiremen
 [cols="1,2,2,2,5",width="80%",options="header"]
 |====================
 |No.|Name           |Size       |Offset     | Description
-|0  |u-boot         |0x00200000 |0x00000000 | PBL + U-boot
-|1  |env            |0x00040000 |0x00200000 | U-Boot environment storage
-|2  |fman_ucode     |0x00040000 |0x00240000 | Firmware for the Frame Manager.
-|3  |cortina_ucode  |0x00040000 |0x00280000 | Cortina Retimer PHY microcode
-|4  |ubipart_nor    |0x01d40000 |0x002c0000 | Rootfs in ubifs format (NAND ubipart_nand partition used by default for rootfs)
+|0  |bl2            |0x00100000 |0x00000000 | PBL + BL2
+|1  |u-boot         |0x00300000 |0x00100000 | FIP + U-boot
+|2  |env            |0x00040000 |0x00300000 | U-Boot environment storage
+|3  |fman_ucode     |0x00040000 |0x00340000 | Firmware for the Frame Manager.
+|4  |cortina_ucode  |0x00040000 |0x00380000 | Cortina Retimer PHY microcode
+|5  |ubipart_nor    |0x01c40000 |0x003c0000 | Rootfs in ubifs format (NAND ubipart_nand partition used by default for rootfs)
 |====================
 
 .NAND Partitioning
 [cols="1,2,2,2,5",width="80%",options="header"]
 |====================
 |No.|Name           |Size       |Offset     | Description
-|0  |u-boot         |0x00200000 |0x00000000 | Reserved (NAND boot not supported)
-|1  |env            |0x00040000 |0x00200000 | Reserved (NAND boot not supported)
-|2  |fman_ucode     |0x00040000 |0x00240000 | Reserved (NAND boot not supported)
-|3  |cortina_ucode  |0x00040000 |0x00280000 | Reserved (NAND boot not supported)
-|4  |ubipart_nand   |0x3fc80000 |0x002c0000 | Rootfs in ubifs format
-|5  |bbt            |0x00100000 |0x3ff00000 |
+|0  |bl2            |0x00100000 |0x00000000 | Reserved (NAND boot not supported)
+|1  |u-boot         |0x00200000 |0x00100000 | Reserved (NAND boot not supported)
+|2  |env            |0x00040000 |0x00300000 | Reserved (NAND boot not supported)
+|3  |fman_ucode     |0x00040000 |0x00340000 | Reserved (NAND boot not supported)
+|4  |cortina_ucode  |0x00040000 |0x00380000 | Reserved (NAND boot not supported)
+|5  |ubipart_nand   |0x3fb80000 |0x003c0000 | Rootfs in ubifs format
+|6  |bbt            |0x00100000 |0x3ff00000 |
 |====================
 
 The resulting mtd partitioning in U-Boot is described with the following configuration:
 ----
-mtdparts=7e800000.flash:2M@0x0(u-boot),256k(env),256k(fman_ucode),256k(cortina_ucode),0x3fc80000(ubipart_nand),1M@0x3ff00000(bbt)ro;60000000.nor:2M@0x0(u-boot),256k(env),256k(fman_ucode),256k(cortina_ucode),-(ubipart_nor)
+mtdparts=7e800000.flash:1M@0x0(bl2),2M(u-boot),256k(env),256k(fman_ucode),256k(cortina_ucode),0x3fb80000(ubipart_nand),1M@0x3ff00000(bbt)ro;60000000.nor:1M@0x0(bl2),2M(u-boot),256k(env),256k(fman_ucode),256k(cortina_ucode),-(ubipart_nor)
 ----
 
 [appendix]
@@ -558,24 +620,24 @@ Which interfaces are located to what slot of the SFP cage?::
 
 At least the following erratas are applicable in the BSP for the respective product. Refer to the documentation of used components for further applicable erratas when necessary.
 
-* QLS1046A-4GB:
+* qls1046a-4gb-dk(b):
 . The card detect signal of the SDHC interface is available on GPIO4_03 instead of SDHC_CD_B. This has been implemented in the BSP.
 . The eSDHC interface can only operate up to 25MHz (SD full speed) instead of 50MHz (SD High speed) due to limitations of the level shifter on the simc-tcb2 carrier board.
 
 [appendix]
 
-==  XFI support for QLS1046A-4GB
-A few things are needed to use the QLS1046A-4GB BSP with XFI support, namely:
+==  XFI support for qls1046a-4gb-dk(b)
+A few things are needed to use the qls1046a-4gb-dk(b) BSP with XFI support, namely:
 
 . Ensure a correctly hardware patched SiMC-TCB02/Dragonfruit v3.0 carrier board is used and that its DIP switch S1007 is set to `1000` (156.25MHz) instead of the default `1010` (100MHz). Contact Sintecs for details if needed. Optionally, you can also add a suitable heatsink on the Cortina retimer IC.
 +
 WARNING: when using the normal BSP without XFI support then you must return S1007 back to `1010`! Otherwise the module will be stuck in a reset loop due to an incorrect input clock.
-. Ensure a U-Boot image is used with XFI support. Refer to section <<Generated Images>> to find the relevant Yocto output image or section <<Standalone U-Boot build>> how to build this image yourself.
+. Ensure the BL2 and FIP bootloader images are used with XFI support. Refer to section <<Generated Images>> to find the relevant Yocto output image or refer to section <<Standalone ATF and U-Boot build>> to build it for the yourself (ensure that you use the correct RCW (i.e., `RR_FFSSPPPP_1133_8888/rcw_1600_<boot_source>_xfi.rcw`) and U-Boot (i.e., `qls1046a_4gb_<boot_source>_xfi_defconfig`) build configurations!).
 . Ensure the Cortina PHY firmware is programmed in the NOR flash under U-Boot with the command `usb start; run update-cortina-ucode-nor-usb` whilst the microcode file `cs4315-cs4340-PHY-ucode.txt` is present on the attached (FAT32 formatted) USB storage device. Ensure to reboot afterwards for the microcode to take effect. The microcode file is provided by the Yocto BSP build.
 . Ensure you boot the Linux image with the XFI specific device tree blob (`qls1046a-4gb-sdk-xfi.dtb` as the separate .dtb or `freescale_qls1046a-4gb-sdk-xfi.dtb` as the configuration in the fitImage) which can be achieved by editing the relevant U-Boot boot environment variable. For booting the rootfs from the NAND flash this is achieved by editing the `ubiboot-nand` variable. If you still have an old BSP rootfs (ubifs) image in your NAND flash, then you also need to update this if you want to boot from it with XFI support. First interrupt U-Boot from automatically booting to Linux and then enter the following command:
 +
 ----
-setenv ubiboot-nand "ubi part ubipart_nand;ubifsmount ubi0:rootfs;ubifsload '${load_addr}' /boot/fitImage;run set_ubiboot_args_nand;bootm '${load_addr}'#conf@freescale_qls1046a-4gb-sdk-xfi.dtb"
+setenv ubiboot-nand "ubi part ubipart_nand;ubifsmount ubi0:rootfs;ubifsload '${load_addr}' /boot/fitImage;run set_ubiboot_args_nand;bootm '${load_addr}'#conf-freescale_qls1046a-4gb-sdk-xfi.dtb"
 ----
 +
 TIP: You can also use the `editenv` command instead to modify the device tree blob configuration name.

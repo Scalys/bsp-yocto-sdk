@@ -1,21 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
-  <default sync-j="1"/>
+  <remote name="github" fetch="https://github.com"/>
+  <remote name="yocto" fetch="https://git.yoctoproject.org/git"/>
 
-  <remote fetch="git://git.yoctoproject.org" name="yocto"/>
-  <remote fetch="git://git.openembedded.org" name="oe"/>
-  <remote fetch="https://github.com" name="github"/>
+  <default sync-j="2"/>
 
-  <project remote="yocto" revision="daf096e295121ea49ebf21f8070e9a6e28f5d46c" name="poky" path="sources/poky"/>
-  <project remote="yocto" revision="52e83e6b7e57bf352fd6770466996530dece3da5" name="meta-security" path="sources/meta-security"/>
-  <project remote="yocto" revision="44d760413920ba440439b8bc7c2a71ca26cd7a2d" name="meta-selinux" path="sources/meta-selinux"/>
-  <project remote="yocto" revision="7e5219669ff6f8e9c8c33ffd230e95a6b2b025f4" name="meta-virtualization" path="sources/meta-virtualization"/>
-  <project remote="yocto" revision="b8c25f63ab9124fe911165205d17808b9a7dead0" name="meta-cloud-services" path="sources/meta-cloud-services"/>
-  <project remote="yocto" revision="e56f52e4afdd043c003475fd671cf3f2f497f2e8" name="meta-freescale" path="sources/meta-freescale"/>
-  <project remote="oe" revision="2b5dd1eb81cd08bc065bc76125f2856e9383e98b" name="meta-openembedded" path="sources/meta-openembedded"/>
-  <project remote="github" revision="ca27d12e4964d1336e662bcc60184bbff526c857" name="Freescale/meta-freescale-distro" path="sources/meta-freescale-distro"/>
-  <project remote="github" revision="7238e60e342deecf379d122bfd67bbb8e2e57bdd" name="nxp-qoriq/meta-qoriq-demos" path="sources/meta-qoriq-demos">
-    <copyfile dest="setup-env" src="scripts/setup-env"/>
+  <project name="OSSystems/meta-browser" path="sources/meta-browser" remote="github" revision="e232c2e21b96dc092d9af8bea4b3a528e7a46dd6"/>
+  <project name="freescale/meta-freescale-distro" path="sources/meta-freescale-distro" remote="github" revision="d5bbb487b2816dfc74984a78b67f7361ce404253" upstream="kirkstone"/>
+  <project name="kraj/meta-clang" path="sources/meta-clang" remote="github" revision="2d08d6bf376a1e06c53164fd6283b03ec2309da4" upstream="kirkstone"/>
+  <project name="meta-cloud-services" path="sources/meta-cloud-services" remote="yocto" revision="64243dfa700653faecb68b75459503ccf566bbd7" upstream="kirkstone"/>
+  <project name="meta-freescale" path="sources/meta-freescale" remote="yocto" revision="f5cc0843233ad0df25aaf801198f67a9c1774a54" upstream="kirkstone"/>
+  <project name="meta-security" path="sources/meta-security" remote="yocto" revision="1a3e42cedbd94ca73be45800d0e902fec35d0f0f" upstream="kirkstone"/>
+  <project name="meta-selinux" path="sources/meta-selinux" remote="yocto" revision="a401f4b2816a0b41ce8d9351542658c721935bcd" upstream="kirkstone"/>
+  <project name="meta-virtualization" path="sources/meta-virtualization" remote="yocto" revision="2d8b3cba8ff27c9ec2187a52b6a551fe1dcfaa07" upstream="kirkstone"/>
+  <project name="openembedded/meta-openembedded" path="sources/meta-openembedded" remote="github" revision="9c5541f7e18a1fac3b8dea71e1ebb8398d58e6ff" upstream="kirkstone"/>
+  <project name="poky" path="sources/poky" remote="yocto" revision="ef5214f584765810e94a6f61585ccbcd9b909502" upstream="kirkstone"/>
+  <project name="nxp-qoriq/meta-qoriq" path="sources/meta-qoriq" remote="github" revision="afaef5e29b0d5cb8a0f59c62bf9cbd44140b041e" upstream="kirkstone"/>
+
+  <project name="Scalys/meta-scalys" path="sources/meta-scalys" remote="github" revision="7b3f06af8337609325ec850de4cd6046d3f3270d" upstream="kirkstone">
+    <copyfile dest="setup-env" src="tools/setup-env"/>
   </project>
-  <project remote="github" revision="92e287924c6f3ec84b32be436d940c5cc5df440c" name="Scalys/meta-scalys" path="sources/meta-scalys"/>
+
 </manifest>
