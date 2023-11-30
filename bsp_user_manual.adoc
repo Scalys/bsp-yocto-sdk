@@ -531,7 +531,7 @@ The partitions can be modified by the user as required, with the only requiremen
 |====================
 |No.|Name           |Size       |Offset     | Description
 |0  |bl2            |0x00100000 |0x00000000 | PBL + BL2
-|1  |u-boot         |0x00300000 |0x00100000 | FIP + U-boot
+|1  |u-boot         |0x00200000 |0x00100000 | FIP + U-boot
 |2  |env            |0x00040000 |0x00300000 | U-Boot environment storage
 |3  |fman_ucode     |0x00040000 |0x00340000 | Firmware for the Frame Manager.
 |4  |cortina_ucode  |0x00040000 |0x00380000 | Cortina Retimer PHY microcode
